@@ -6,3 +6,4 @@ examples/*.wav
 examples/*.json
 examples/**/*.wav
 examples/**/*.json
+examples/**/*.mp3
