@@ -2,7 +2,7 @@
 // harmony and bass layers in a register-appropriate way (Alberti bass, wide Romantic
 // arpeggios, waltz, walking bass + rootless comping, continuo, pads, pulses...).
 
-import { mod12, nearestPitchWithPc, chordScale, stepAlong } from './theory.js';
+import { mod12, nearestPitchWithPc, chordScale, stepAlong, pitchesInRange } from './theory.js';
 
 const note = (layer, startQ, durQ, pitch, acc = 1) => ({ layer, startQ, durQ, pitch, acc });
 
@@ -258,6 +258,54 @@ const PATTERNS = {
     return notes;
   },
 
+  // Sweeping arpeggio whose speed and span follow the energy curve: gentle 8ths when
+  // quiet, triplets as feeling rises, 16th-note waves across three octaves at the peak.
+  cascade(ctx) {
+    const { entry, v, meter, energy } = ctx;
+    const notes = [];
+    const end = entry.startQ + entry.durQ;
+    const b = v.bass;
+    const top = energy > 0.75 ? 76 : energy > 0.45 ? 72 : 69;
+    const ladder = [];
+    let last = b;
+    for (const p of pitchesInRange(entry.chord.pcs, b + 5, top)) {
+      if (p - last >= (ladder.length < 2 ? 5 : 3)) { ladder.push(p); last = p; }
+    }
+    if (ladder.length < 3) ladder.splice(0, ladder.length, ...v.upper);
+    const step = energy > 0.72 ? 0.25 : energy > 0.42 ? (meter.compound ? 0.5 : 1 / 3) : 0.5;
+    const seq = ladder.concat(ladder.slice(1, -1).reverse());
+    notes.push(note('bass', entry.startQ, entry.durQ, b, 1.05));
+    if (energy > 0.8 && b - 12 >= 21) notes.push(note('bass', entry.startQ, entry.durQ, b - 12, 0.9));
+    gridIn(entry, step).forEach((t, i) => {
+      if (i === 0) return; // the bass speaks on the downbeat
+      const k = (i - 1) % seq.length;
+      const crest = k === ladder.length - 1 ? 0.08 : 0;
+      notes.push(note('harmony', t, Math.min(end - t, step * 4), seq[k], 0.5 + 0.12 * energy + crest));
+    });
+    return notes;
+  },
+
+  // Measured tremolo between the lower and upper halves of the chord over bass octaves.
+  tremolo(ctx) {
+    const { entry, v, meter, energy } = ctx;
+    const notes = [];
+    const end = entry.startQ + entry.durQ;
+    const step = energy > 0.6 ? 0.25 : meter.compound ? 0.5 : 1 / 3;
+    const half = Math.ceil(v.upper.length / 2);
+    const lo = v.upper.slice(0, half);
+    const hi = v.upper.length > 1 ? v.upper.slice(half) : [v.upper[0] + 12];
+    gridIn(entry, step).forEach((t, i) => {
+      (i % 2 ? hi : lo).forEach((p) => notes.push(note('harmony', t, Math.min(end - t, step * 1.05), p, i % 2 ? 0.6 : 0.68)));
+    });
+    const low = v.bass - 12 >= 24 ? v.bass - 12 : null;
+    strongPulsesIn(entry, meter).forEach((t, i, arr) => {
+      const d = (arr[i + 1] ?? end) - t;
+      notes.push(note('bass', t, d, v.bass, 1));
+      if (low !== null) notes.push(note('bass', t, d, low, 0.85));
+    });
+    return notes;
+  },
+
   pulse(ctx) {
     const { entry, v, meter, rng, params } = ctx;
     const notes = [];
@@ -295,6 +343,7 @@ export const PATTERN_LABELS = {
   block: 'block chords', alberti: 'Alberti bass', broken: 'broken chords', arpeggio: 'wide arpeggios',
   waltz: 'waltz (oom-pah-pah)', octaves: 'driving bass octaves', pad: 'sustained pads', shimmer: 'slow arpeggiated shimmer',
   comp: 'walking bass + rootless comping', continuo: 'walking continuo bass', pulse: 'syncopated 3+3+2 pulses', wash: 'open-fifth washes',
+  cascade: 'sweeping arpeggios (density follows the arc)', tremolo: 'measured tremolo over bass octaves',
 };
 
 export function chooseTexture(style, sectionType, params, meter, rng) {
@@ -304,7 +353,7 @@ export function chooseTexture(style, sectionType, params, meter, rng) {
   if (params.complexity < 0.3) {
     for (const k of ['block', 'pad', 'wash', 'waltz']) if (weights[k] !== undefined) weights[k] *= 3;
   } else if (params.complexity > 0.7) {
-    for (const k of ['arpeggio', 'alberti', 'broken', 'shimmer', 'pulse', 'octaves']) if (weights[k] !== undefined) weights[k] *= 2;
+    for (const k of ['arpeggio', 'alberti', 'broken', 'shimmer', 'pulse', 'octaves', 'cascade', 'tremolo']) if (weights[k] !== undefined) weights[k] *= 2;
   }
   return rng.weighted(weights);
 }

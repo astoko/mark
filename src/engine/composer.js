@@ -11,7 +11,8 @@ import { generateHarmony } from './harmony.js';
 import { voiceTimeline } from './voicing.js';
 import { chooseTexture, renderAccompaniment, PATTERN_LABELS } from './accompaniment.js';
 import { generateMelody, generateMinimalist } from './melody.js';
-import { buildTempoMap, applyPerformance } from './performance.js';
+import { buildTempoMap, applyPerformance, makeEnergyCurve } from './performance.js';
+import { applyVirtuosity } from './virtuoso.js';
 import { keyLabel, MODE_FAMILY, usesFlats, pcName, midiName } from './theory.js';
 
 const MOOD_TABLE = {
@@ -20,10 +21,12 @@ const MOOD_TABLE = {
   peaceful: { minor: 0.25, tempo: 0.82, energy: -0.15, dyn: -10, styles: { ambient: 3, romantic: 1.5, minimalist: 1, contemporary: 1 } },
   dreamy: { minor: 0.3, tempo: 0.88, energy: -0.08, dyn: -6, styles: { ambient: 3, contemporary: 2, romantic: 1 }, prefer: 'lydian' },
   happy: { minor: 0.05, tempo: 1.12, energy: 0.05, dyn: 2, styles: { classical: 3, jazz: 1.5, baroque: 1.5, minimalist: 1 } },
-  dramatic: { minor: 0.65, tempo: 1.1, energy: 0.12, dyn: 8, styles: { romantic: 3, contemporary: 2, baroque: 1.5, classical: 1 } },
+  dramatic: { minor: 0.65, tempo: 1.1, energy: 0.12, dyn: 8, styles: { romantic: 3, virtuoso: 1.5, contemporary: 2, baroque: 1.5, classical: 1 } },
   dark: { minor: 0.95, tempo: 0.92, energy: 0.02, dyn: 0, styles: { contemporary: 3, romantic: 2, ambient: 1 }, prefer: 'phrygian' },
   mysterious: { minor: 0.75, tempo: 0.9, energy: -0.02, dyn: -4, styles: { contemporary: 3, ambient: 2, jazz: 1 }, prefer: 'dorian' },
-  romanticMood: { minor: 0.35, tempo: 0.92, energy: 0, dyn: -2, styles: { romantic: 3, jazz: 1.5, contemporary: 1 } },
+  romanticMood: { minor: 0.35, tempo: 0.92, energy: 0, dyn: -2, styles: { romantic: 3, virtuoso: 1, jazz: 1.5, contemporary: 1 } },
+  // One continuous arc: wider contrast between tender and climactic moments, freer rubato.
+  emotional: { minor: 0.55, tempo: 0.94, energy: 0.03, dyn: 2, flow: true, arc: 1.25, rubato: 1.2, styles: { romantic: 3, virtuoso: 2, contemporary: 1.5, ambient: 1 } },
   energetic: { minor: 0.25, tempo: 1.22, energy: 0.1, dyn: 6, styles: { minimalist: 2, baroque: 2, classical: 2, jazz: 2 } },
 };
 
@@ -31,7 +34,7 @@ const MAJOR_TONICS = { 0: 3, 7: 2.5, 2: 2, 5: 2.5, 10: 2, 3: 2, 9: 1.5, 4: 1.2, 
 const MINOR_TONICS = { 9: 3, 4: 2.5, 2: 2.5, 7: 2, 0: 2, 6: 1.5, 11: 1.5, 5: 1.2, 1: 1 };
 const JAZZ_TONICS = { 5: 3, 10: 3, 3: 2.5, 8: 2, 1: 1.5, 0: 2, 7: 1 };
 
-const FUNCTIONAL = new Set(['classical', 'baroque', 'romantic', 'jazz']);
+const FUNCTIONAL = new Set(['classical', 'baroque', 'romantic', 'virtuoso', 'jazz']);
 
 export function resolveParams(parsed = {}, overrides = {}) {
   const seed = parsed.seed ?? overrides.seed ?? randomSeed();
@@ -42,7 +45,7 @@ export function resolveParams(parsed = {}, overrides = {}) {
 
   let styleId = parsed.style && STYLE_IDS.includes(parsed.style) ? parsed.style : null;
   if (!styleId) {
-    styleId = md ? rng.weighted(md.styles) : rng.weighted({ classical: 2, romantic: 2, ambient: 1.5, jazz: 1.5, contemporary: 1.5, baroque: 1, minimalist: 1 });
+    styleId = md ? rng.weighted(md.styles) : rng.weighted({ classical: 2, romantic: 2, ambient: 1.5, jazz: 1.5, contemporary: 1.5, baroque: 1, minimalist: 1, virtuoso: 0.8 });
     inferred.push('style');
   }
   const style = getStyle(styleId);
@@ -63,7 +66,7 @@ export function resolveParams(parsed = {}, overrides = {}) {
   if (!MODE_FAMILY[mode]) mode = 'major';
   if (tonic === null || tonic === undefined) {
     const fam = MODE_FAMILY[mode] || 'major';
-    tonic = Number(rng.weighted(styleId === 'jazz' && fam === 'major' ? JAZZ_TONICS : fam === 'major' ? MAJOR_TONICS : MINOR_TONICS));
+    tonic = Number(rng.weighted(style.tonics?.[fam] || (styleId === 'jazz' && fam === 'major' ? JAZZ_TONICS : fam === 'major' ? MAJOR_TONICS : MINOR_TONICS)));
     inferred.push('key');
   }
 
@@ -100,6 +103,7 @@ export function resolveParams(parsed = {}, overrides = {}) {
   return {
     style: styleId, mood: mood || 'neutral', key: { tonic, mode }, tempo, meter, complexity, duration,
     energyBias: md?.energy ?? 0, dynamicsShift: (md?.dyn ?? 0) + (parsed.dynamicsShift || 0),
+    flow: !!(parsed.flow || md?.flow), arc: md?.arc ?? (parsed.flow ? 1.1 : 1), rubatoScale: md?.rubato ?? 1,
     seed: seed >>> 0, melodySeed: (parsed.melodySeed ?? overrides.melodySeed ?? randomSeed()) >>> 0,
     inferred, ...overrides.force,
   };
@@ -118,10 +122,11 @@ function makeTitle(params, style, rng) {
     mysterious: ['The Locked Room', 'Fog Signals', 'Hidden Garden', 'Cipher'],
     romanticMood: ['Two Chairs', 'Letters Home', 'Evening Promise', 'Close Distance'],
     energetic: ['Running Lights', 'Clockwork', 'Momentum', 'Sprint'],
+    emotional: ['Undertow of the Heart', 'What Remains', 'Open Wound, Open Sky', 'Confession'],
     neutral: ['Study', 'Sketch', 'Reverie', 'Episode'],
   };
   const form = rng.pick(style.titles);
-  if (['classical', 'baroque', 'romantic'].includes(style.id)) return `${form} in ${key}`;
+  if (['classical', 'baroque', 'romantic', 'virtuoso'].includes(style.id)) return `${form} in ${key}`;
   const words = moodWords[params.mood] || moodWords.neutral;
   return `${rng.pick(words)} (${form}, ${key})`;
 }
@@ -139,6 +144,8 @@ function buildPieces(params) {
   const plan = planStructure(params, style, rPlan);
   const { timeline, techniques } = generateHarmony(plan, style, params, rHarm);
   const voicings = voiceTimeline(timeline, style, params, rVoice);
+  const energyAt = makeEnergyCurve(plan, style, params);
+  const flow = params.flow || style.dynamics.flow;
 
   let melody; let harmony = []; let bass = [];
   const textures = {};
@@ -165,7 +172,7 @@ function buildPieces(params) {
       if (entry.final && !['continuo', 'comp'].includes(texture)) texture = style.id === 'ambient' ? 'pad' : 'block';
       const notes = renderAccompaniment({
         texture, entry, v: voicings[i], next: timeline[i + 1] ? { entry: timeline[i + 1], v: voicings[i + 1] } : null,
-        meter: plan.meter, energy: section.energy, params, rng: rAcc, qTempo: plan.qTempo, style, state, phrase,
+        meter: plan.meter, energy: flow ? energyAt(entry.startQ) : section.energy, params, rng: rAcc, qTempo: plan.qTempo, style, state, phrase,
       });
       for (const n of notes) (n.layer === 'bass' ? bass : harmony).push(n);
     });
@@ -181,10 +188,16 @@ function buildPieces(params) {
       harmony = counter.notes.map((n) => ({ ...n, layer: 'harmony', acc: (n.acc || 1) * 0.92 }));
       extraTechniques.push('imitative counter-voice');
     }
+    if (style.cadenza || style.grandioso || style.finalFlourish) {
+      const v = applyVirtuosity({ plan, timeline, voicings, layers: { melody, harmony, bass }, style, rng: rMel.fork('virtuoso') });
+      ({ melody, harmony, bass } = v.layers);
+      extraTechniques.push(...v.techniques);
+    }
   }
+  if (flow) extraTechniques.push('one continuous dynamic arc (no terraced sections)');
 
   const tempoMap = buildTempoMap(plan, style, params, rPerf);
-  const perf = applyPerformance({ plan, layers: { melody, harmony, bass }, style, params, rng: rPerf, tempoMap, timeline });
+  const perf = applyPerformance({ plan, layers: { melody, harmony, bass }, style, params, rng: rPerf, tempoMap, timeline, energyAt });
 
   return { style, plan, timeline, voicings, perf, tempoMap, textures, techniques: [...techniques, ...extraTechniques] };
 }
@@ -262,7 +275,7 @@ export function compose(params) {
       tempo: params.tempo, quarterTempo: +plan.qTempo.toFixed(2), timeSignature: params.meter,
       complexity: +params.complexity.toFixed(2), requestedDuration: params.duration,
       duration: +endTime.toFixed(2), bars: plan.totalBars, seed: params.seed, melodySeed: params.melodySeed,
-      flats, inferred: params.inferred || [],
+      flats, flow: !!(params.flow || style.dynamics.flow), inferred: params.inferred || [],
     },
     sections, phrases, chords, bars,
     layers,

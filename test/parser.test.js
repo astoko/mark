@@ -25,6 +25,16 @@ test('handles accidentals, bare tonics, meters and durations', () => {
   assert.equal(parseRequest('an allegro').tempo.bpm, 132);
 });
 
+test('Liszt requests map to the virtuoso style with an emotional, flowing arc', () => {
+  const p = parseRequest('Make an new composition Liszt style and make it emotional flow');
+  assert.equal(p.style, 'virtuoso');
+  assert.equal(p.mood, 'emotional');
+  assert.equal(p.flow, true);
+  assert.equal(parseRequest('a romantic piece like Liszt').style, 'virtuoso'); // refinement wins
+  assert.equal(parseRequest('a romantic nocturne').style, 'romantic');
+  assert.equal(parseRequest('chopin-style waltz').style, 'romantic');
+});
+
 test('does not mistake articles or "minute" for keys', () => {
   assert.equal(parseRequest('a dramatic piece').key, null);
   assert.equal(parseRequest('a minute of calm').key, null);

@@ -74,7 +74,8 @@ export function planStructure(params, style, rng) {
     const count = f.phrases;
     const section = {
       index: si, type: f.type, name: f.name, startBar: bar, bars: 0,
-      energy: Math.max(0.08, Math.min(1, BASE_ENERGY[f.type] + moodEnergy)),
+      // Arc > 1 (emotional requests) widens the contrast between quiet and climactic sections.
+      energy: Math.max(0.08, Math.min(1, 0.5 + ((style.energy?.[f.type] ?? BASE_ENERGY[f.type]) - 0.5) * (params.arc || 1) + moodEnergy)),
       phraseIdx: [],
     };
     for (let p = 0; p < count; p++) {
@@ -131,7 +132,8 @@ export function planStructure(params, style, rng) {
       phrase.contour = f.type === 'climax'
         ? rng.weighted({ arch: 3, ascending: 2 })
         : f.type === 'outro' ? rng.weighted({ descending: 3, arch: 1 })
-          : rng.weighted(style.melody.contours);
+          : f.type === 'development' && style.risingDevelopment ? 'ascending'
+            : rng.weighted(style.melody.contours);
 
       phrases.push(phrase);
       section.phraseIdx.push(phrase.index);

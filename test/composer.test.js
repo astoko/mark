@@ -60,7 +60,7 @@ test('style changes the compositional logic, not just the tone', () => {
 });
 
 test('melody ends on the tonic at the final cadence', () => {
-  for (const style of ['classical', 'romantic', 'baroque', 'jazz']) {
+  for (const style of ['classical', 'romantic', 'virtuoso', 'baroque', 'jazz']) {
     const c = make(`${style} piece in D major`, 21);
     const last = c.layers.melody.filter((n) => !n.doubling).sort((x, y) => x.start - y.start).pop();
     assert.equal(last.pitch % 12, 2, style);
@@ -84,4 +84,52 @@ test('MIDI export writes a valid multi-track file', () => {
   assert.equal(String.fromCharCode(...bytes.slice(0, 4)), 'MThd');
   assert.equal(bytes[9], 1); // format 1
   assert.equal(bytes[11], 4); // tempo + 3 layers
+});
+
+test('virtuoso: cadenza, grandioso climax and a continuous emotional arc', async () => {
+  const { makeEnergyCurve } = await import('../src/engine/performance.js');
+  const { planStructure } = await import('../src/engine/structure.js');
+  const { getStyle } = await import('../src/engine/styles.js');
+  const { createRng } = await import('../src/engine/rng.js');
+  let cadenzas = 0;
+  for (const seed of [1, 2, 3, 4, 5, 6]) {
+    const c = make('emotional Liszt-style piece, 2 minutes', seed);
+    assert.equal(c.meta.style, 'virtuoso');
+    assert.equal(c.meta.flow, true);
+    const run = c.layers.melody.filter((n) => n.cadenza);
+    if (run.length) {
+      cadenzas++;
+      assert.ok(run.length >= 10, `cadenza has ${run.length} notes`);
+      const span = Math.max(...run.map((n) => n.pitch)) - Math.min(...run.map((n) => n.pitch));
+      assert.ok(span >= 24, 'cadenza sweeps at least two octaves');
+      assert.ok(c.chords.some((ch) => ch.symbol.includes('♭9')), 'cadenza chord shows its ♭9');
+    }
+    assert.ok(c.analysis.techniques.some((t) => /grandioso/.test(t)));
+    // Loudest stretch sits in the climax, quietest at the ends.
+    const climax = c.sections.find((s) => s.type === 'climax');
+    const avg = (from, to) => { const v = Object.values(c.layers).flat().filter((n) => n.time >= from && n.time < to).map((n) => n.velocity); return v.reduce((a, b) => a + b, 0) / v.length; };
+    const first = c.sections[0];
+    const last = c.sections[c.sections.length - 1];
+    assert.ok(avg(climax.startTime, climax.endTime) > avg(first.startTime, first.endTime) + 12);
+    assert.ok(avg(climax.startTime, climax.endTime) > avg(last.startTime, last.endTime) + 12);
+  }
+  assert.ok(cadenzas >= 5, `development cadenza present in ${cadenzas}/6 pieces`);
+
+  // The flow curve rises continuously from the theme into the climax (no plateaus).
+  const params = resolveParams(parseRequest('emotional Liszt-style piece'), { seed: 3, melodySeed: 4 });
+  const style = getStyle('virtuoso');
+  const plan = planStructure(params, style, createRng(3));
+  const curve = makeEnergyCurve(plan, style, params);
+  const bq = plan.meter.barQ;
+  const theme = plan.sections.find((s) => s.type === 'theme');
+  const climax = plan.sections.find((s) => s.type === 'climax');
+  const a = (theme.startBar + theme.bars / 2) * bq;
+  const b = (climax.startBar + climax.bars * 0.4) * bq;
+  let prev = -1;
+  for (let i = 0; i <= 20; i++) {
+    const e = curve(a + ((b - a) * i) / 20);
+    assert.ok(e >= prev - 1e-9, 'energy never dips on the way to the climax');
+    prev = e;
+  }
+  assert.ok(curve(b) > curve(a) + 0.3);
 });

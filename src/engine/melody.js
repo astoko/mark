@@ -393,9 +393,9 @@ export function generateMelody(opts) {
       if (tr > 6) tr -= 12;
       const srcNotes = phraseNotes[src].filter((n) => n.startQ - srcPhrase.startBar * barQ < (phrase.bars - 1) * barQ - 1e-6 && !n.octave);
       let oct = 0;
-      if (phrase.sectionType === 'climax' && ['romantic', 'classical', 'contemporary'].includes(style.id)) {
+      if (phrase.sectionType === 'climax' && ['romantic', 'virtuoso', 'classical', 'contemporary'].includes(style.id)) {
         const mx = Math.max(...srcNotes.map((n) => n.pitch));
-        if (mx + 12 + tr <= 93 && rng.chance(0.45)) oct = 12;
+        if (mx + 12 + tr <= 94 && rng.chance(cfg.climaxOctaveUp ?? 0.45)) oct = 12;
       }
       for (const n of srcNotes) {
         let pitch = n.pitch + tr + oct;

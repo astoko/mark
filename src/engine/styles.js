@@ -261,7 +261,7 @@ const ROMANTIC = {
     contours: { arch: 4, ascending: 1.2, descending: 1.2, wave: 1 },
     degreeWeights: [1.1, 1, 1.2, 0.95, 1.2, 1.05, 0.85],
   },
-  dynamics: { min: 34, max: 112, hairpin: 18 },
+  dynamics: { min: 34, max: 112, hairpin: 18, flow: true },
   rubato: 0.09, sectionRit: 0.12, finalRit: 0.35, swing: 0,
   pedal: 'chord',
   form: [
@@ -274,6 +274,116 @@ const ROMANTIC = {
   keyPlan: { major: { development: [8, 'major'], alt: [9, 'minor'] }, minor: { development: [8, 'major'], alt: [3, 'major'] } },
   titles: ['Nocturne', 'Romance', 'Intermezzo', 'Ballade', 'Song Without Words', 'Impromptu'],
   techniques: ['modal mixture (borrowed iv, ♭VI)', 'Neapolitan and diminished-seventh colour', 'wide arpeggiated accompaniment', 'expressive rubato', 'appoggiaturas'],
+};
+
+// Lisztian virtuoso Romanticism: chromatic-mediant key areas, augmented and
+// diminished-seventh colour, rising sequences, energy-adaptive sweeping arpeggios and
+// measured tremolo, a cadenza over the dominant, and thematic transformation — the
+// lyrical theme returns "grandioso" in octaves and full chords.
+const VIRTUOSO = {
+  ...ROMANTIC,
+  id: 'virtuoso',
+  label: 'Romantic virtuoso',
+  tempo: { min: 50, max: 112, default: 72 },
+  meters: [[[4, 4], 3], [[6, 8], 1.5], [[3, 4], 1.5], [[12, 8], 1]],
+  complexity: 0.75,
+  minorBias: 0.45,
+  tonics: { major: { 1: 3, 8: 2.5, 4: 2, 6: 1.5, 3: 1.5, 9: 1 }, minor: { 1: 2, 11: 2, 5: 2, 4: 1.5, 9: 1.5, 7: 1 } },
+  harmonicRhythm: { 1: 4, 2: 1.2 },
+  devHarmonicRhythm: { 2: 3, 1: 1 },
+  progression: {
+    major: {
+      I: { IV: 1.8, vi: 1.8, V: 1.5, ii: 1.2, iii: 0.6, III: 0.9, bVI: 1, iv: 0.8, 'V/vi': 0.7, 'vii°7/V': 0.6, 'V/ii': 0.5 },
+      ii: { V: 3, 'V+': 0.8, 'vii°7/V': 1, 'V/V': 1 },
+      iii: { vi: 2.5, IV: 1.5 },
+      III: { vi: 2.2, IV: 1.2, bVI: 0.6, I: 0.6 },
+      IV: { iv: 1.5, V: 2, I: 1.2, ii: 1, 'vii°7/V': 0.8 },
+      iv: { I: 2, V: 1.5, bVI: 0.5 },
+      V: { I: 5, vi: 1.5, bVI: 0.8 },
+      'V+': { I: 5 },
+      vi: { IV: 2, ii: 2, III: 0.6, 'V/V': 1, iii: 0.8 },
+      bVI: { iv: 1.2, V: 1.8, I: 1.2, bII: 0.5 },
+      bII: { V: 3 },
+      'vii°7/V': { V: 4 },
+      'V/V': { V: 1 }, 'V/vi': { vi: 1 }, 'V/ii': { ii: 1 },
+    },
+    minor: {
+      i: { iv: 2, VI: 2.2, V: 1.8, III: 1.5, bII: 0.8, 'ii°': 0.8, 'vii°7': 1, 'V/iv': 0.6, 'vii°7/V': 0.6 },
+      iv: { V: 2.5, i: 1.2, 'vii°7': 1, bII: 1, 'V+': 0.5 },
+      bII: { V: 3.5, 'vii°7/V': 0.6 },
+      VI: { iv: 1.2, bII: 1.2, 'ii°': 1.2, V: 1.5, III: 0.8, 'vii°7/V': 0.6 },
+      III: { VI: 2, iv: 1.2, VII: 0.8, 'V/iv': 0.5 },
+      VII: { III: 3 },
+      'ii°': { V: 4, 'V+': 0.6 },
+      V: { i: 5, VI: 2 },
+      'V+': { i: 4, VI: 1 },
+      'vii°7': { i: 4, V: 0.8 },
+      'vii°7/V': { V: 4 },
+      'V/iv': { iv: 1 },
+    },
+  },
+  // Rising sequences: each bar tonicises the next scale step (builds tension).
+  sequences: {
+    major: [['I', 'V/ii', 'ii', 'V/iii', 'iii', 'V/IV', 'IV', 'V']],
+    minor: [['i', 'V/iv', 'iv', 'V/V', 'V', 'V/VI', 'VI', 'V']],
+  },
+  sequenceLabel: 'rising sequences through secondary dominants',
+  cadences: {
+    major: {
+      PAC: [['iv', 'V7', 'I'], ['vii°7/V', 'V7', 'I'], ['bVI', 'V+', 'I'], ['ii7', 'V9', 'I']],
+      HC: [['iv', 'V'], ['vii°7/V', 'V'], ['bVI', 'V']],
+      DC: [['V7', 'bVI'], ['V7', 'vi']],
+      PLAGAL: [['iv', 'I'], ['IV', 'iv', 'I']],
+    },
+    minor: {
+      PAC: [['bII', 'V7', 'i'], ['iv', 'vii°7/V', 'V7', 'i'], ['VI', 'vii°7', 'i']],
+      HC: [['iv', 'V'], ['bII', 'V'], ['VI', 'vii°7/V', 'V']],
+      DC: [['V7', 'VI']],
+      PLAGAL: [['iv', 'i']],
+    },
+  },
+  extensions: { dominant7: 0.6, seventh: 0.3, ninth: 0.2, add9: 0.05, sus: 0.02, dim7: 0.6 },
+  textures: {
+    intro: { block: 1.5, cascade: 2 },
+    theme: { cascade: 4, arpeggio: 1 },
+    development: { cascade: 2.5, tremolo: 2 },
+    climax: { cascade: 3, octaves: 1, tremolo: 1 },
+    outro: { cascade: 3, block: 1 },
+  },
+  meterTextures: null,
+  melody: {
+    ...ROMANTIC.melody,
+    range: [63, 91], restProb: 0.03, appoggiatura: 0.28, chromatic: 0.1, octaveDouble: 1,
+    rhythm: { q: 3, tie: 2.2, e2: 2, triplet: 1.6, dotted: 1.2, s4: 0.5, rest: 0.15, syncop: 0.5 },
+    baseLevel: 1.3,
+    sequenceProb: 0.6,
+    climaxOctaveUp: 0.7,
+  },
+  energy: { intro: 0.22, climax: 1, outro: 0.16 },
+  dynamics: { min: 28, max: 116, hairpin: 20, flow: true },
+  rubato: 0.12, sectionRit: 0.14, finalRit: 0.4, swing: 0,
+  stringendo: 0.08, // push forward through the development…
+  broaden: 0.05, // …then broaden (largamente) for the transformed theme
+  risingDevelopment: true,
+  cadenza: { intro: 0.5, development: 1 },
+  grandioso: true,
+  finalFlourish: true,
+  form: [
+    { type: 'intro', name: 'Preludio', weight: 0.5, fixed: 1 },
+    { type: 'theme', name: 'Theme — dolce cantabile', weight: 2, min: 2 },
+    { type: 'development', name: 'Agitato — rising sequences', weight: 1.8, min: 1 },
+    { type: 'climax', name: 'Grandioso — theme transformed', weight: 1.5, min: 1, reuse: 'theme' },
+    { type: 'outro', name: 'Coda — dolcissimo', weight: 0.7, fixed: 1 },
+  ],
+  keyPlan: { major: { development: [4, 'major'], alt: [8, 'major'] }, minor: { development: [8, 'major'], alt: [3, 'major'] } },
+  titles: ['Rhapsody', 'Concert Étude', 'Fantasy', 'Poème', 'Élégie', 'Ballade'],
+  techniques: [
+    'thematic transformation (lyrical theme returns grandioso in octaves and full chords)',
+    'chromatic-mediant key areas, augmented and diminished-seventh colour',
+    'sweeping arpeggios whose density follows the emotional arc',
+    'cadenza over the dominant',
+    'stringendo into the climax, largamente at its peak',
+  ],
 };
 
 const JAZZ = {
@@ -513,6 +623,7 @@ export const STYLES = {
   classical: CLASSICAL,
   baroque: BAROQUE,
   romantic: ROMANTIC,
+  virtuoso: VIRTUOSO,
   jazz: JAZZ,
   ambient: AMBIENT,
   minimalist: MINIMALIST,

@@ -100,7 +100,7 @@ function functionalPhrase(phrase, slots, style, rng, ctx) {
     while (tokens.length < slots) tokens.push(seq[tokens.length % seq.length]);
     const cad = pickCadence(style, family, phrase.cadence, rng);
     for (let i = 0; i < cad.length && i < slots; i++) tokens[slots - cad.length + i] = cad[i];
-    return { tokens, cadenceFrom: slots - cad.length, technique: 'circle-of-fifths sequence' };
+    return { tokens, cadenceFrom: slots - cad.length, technique: style.sequenceLabel || 'circle-of-fifths sequence' };
   }
 
   let cadenceType = phrase.cadence;
@@ -226,7 +226,7 @@ function neoRiemannPhrase(phrase, slots, style, rng, ctx) {
 // --- main ---------------------------------------------------------------------
 
 function slotsPerBar(style, phrase, params, rng) {
-  const hr = { ...style.harmonicRhythm };
+  const hr = { ...(phrase.sectionType === 'development' && style.devHarmonicRhythm ? style.devHarmonicRhythm : style.harmonicRhythm) };
   // Complexity speeds up harmonic rhythm; outer sections slow it.
   if (params.complexity > 0.65 && hr[2] !== undefined) hr[2] *= 1.8;
   if (params.complexity < 0.35) { if (hr[2]) hr[2] *= 0.4; if (hr[0.5]) hr[0.5] *= 1.5; }

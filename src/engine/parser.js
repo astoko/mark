@@ -7,7 +7,8 @@ import { parseNoteLetter, mod12 } from './theory.js';
 const STYLE_WORDS = {
   classical: ['classical', 'sonata', 'sonatina', 'mozart', 'haydn', 'clementi', 'beethoven', 'galant', 'minuet', 'rondo'],
   baroque: ['baroque', 'bach', 'handel', 'scarlatti', 'vivaldi', 'fugue', 'fugal', 'invention', 'counterpoint', 'contrapuntal', 'harpsichord', 'toccata', 'gigue', 'partita'],
-  romantic: ['romantic', 'chopin', 'liszt', 'schumann', 'brahms', 'rachmaninoff', 'rachmaninov', 'tchaikovsky', 'nocturne', 'ballade', 'sweeping', 'lush', 'impromptu', 'mendelssohn'],
+  romantic: ['romantic', 'chopin', 'schumann', 'brahms', 'rachmaninoff', 'rachmaninov', 'tchaikovsky', 'nocturne', 'ballade', 'sweeping', 'lush', 'impromptu', 'mendelssohn'],
+  virtuoso: ['virtuoso', 'liszt', 'lisztian', 'liszt-like', 'rhapsody', 'rhapsodic', 'bravura', 'grandioso', 'virtuosic', 'transcendental'],
   jazz: ['jazz', 'jazzy', 'jazzier', 'swing', 'swingy', 'bebop', 'bop', 'lounge', 'blues', 'bluesy', 'noir', 'smoky', 'smokey', 'speakeasy', 'cocktail', 'standards', 'ragtime', 'stride'],
   ambient: ['ambient', 'atmospheric', 'drone', 'ethereal', 'meditative', 'meditation', 'spacey', 'spacious', 'floating', 'drifting', 'lofi', 'lo-fi', 'sleep', 'relaxing', 'chill'],
   minimalist: ['minimalist', 'minimal', 'minimalism', 'glass', 'reich', 'repetitive', 'process', 'hypnotic', 'ostinato', 'looping', 'pulsing', 'motoric'],
@@ -24,6 +25,7 @@ const MOODS = {
   dark: { words: ['dark', 'darker', 'ominous', 'sinister', 'brooding', 'menacing', 'haunting', 'haunted', 'gothic'], minor: 0.95, tempo: 0.92, energy: 0.02, dyn: 0, phrygian: true },
   mysterious: { words: ['mysterious', 'mystery', 'eerie', 'enigmatic', 'suspenseful', 'uncanny', 'curious'], minor: 0.75, tempo: 0.9, energy: -0.02, dyn: -4, dorian: true },
   romanticMood: { words: ['love', 'loving', 'romance', 'affectionate', 'warm', 'intimate', 'yearning'], minor: 0.35, tempo: 0.92, energy: 0, dyn: -2 },
+  emotional: { words: ['emotional', 'expressive', 'heartfelt', 'soulful', 'moving', 'touching', 'poignant', 'emotive', 'tearful'], minor: 0.55, tempo: 0.94, energy: 0.03, dyn: 2 },
   energetic: { words: ['energetic', 'lively', 'upbeat', 'driving', 'exciting', 'bouncy', 'vivacious', 'excited'], minor: 0.25, tempo: 1.22, energy: 0.1, dyn: 6 },
 };
 
@@ -39,18 +41,24 @@ const MODE_WORDS = {
   dorian: 'dorian', phrygian: 'phrygian', lydian: 'lydian', mixolydian: 'mixolydian',
 };
 
+// A style that refines another wins when both are mentioned ("a romantic piece like Liszt").
+const REFINES = { virtuoso: 'romantic' };
+
 function findStyle(text) {
   let best = null; let bestScore = 0; let bestPos = Infinity;
+  const matched = new Set();
   for (const [id, words] of Object.entries(STYLE_WORDS)) {
     for (const w of words) {
       const re = new RegExp(`\\b${w.replace('-', '\\-')}\\b`);
       const m = re.exec(text);
       if (m) {
+        matched.add(id);
         const score = w === id ? 2 : 1;
         if (score > bestScore || (score === bestScore && m.index < bestPos)) { best = id; bestScore = score; bestPos = m.index; }
       }
     }
   }
+  for (const [child, parent] of Object.entries(REFINES)) if (matched.has(child) && (best === parent || best === child)) return child;
   return best;
 }
 
@@ -155,6 +163,7 @@ export function parseRequest(raw, previous = null) {
     tempo: findTempo(text),
     meter: findMeter(text),
     complexity: findComplexity(text),
+    flow: /\b(flow|flows|flowing|fluid|seamless|continuous|unbroken|legato)\b/.test(text),
     remix: false,
     changes: [],
   };
@@ -171,6 +180,7 @@ export function parseRequest(raw, previous = null) {
       tempo: out.tempo?.bpm ? out.tempo : { bpm: p.tempo },
       meter: out.meter || p.meter,
       complexity: out.complexity ?? p.complexity,
+      flow: out.flow || p.flow,
       seed: p.seed,
       melodySeed: p.melodySeed,
     };

@@ -45,6 +45,7 @@ const EXAMPLES = [
   'Late-night jazz ballad in F',
   'Hypnotic minimalist piece in 7/8',
   'Stormy romantic nocturne, 3 minutes',
+  'Emotional Liszt-style rhapsody with a flowing arc',
   'Baroque invention in D minor, allegro',
   'Mysterious cinematic contemporary piece',
 ];

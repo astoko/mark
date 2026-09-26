@@ -55,7 +55,7 @@ export class Player {
     this.comp = comp;
     this.events = buildEvents(comp);
     this.maxDur = Math.max(1, ...this.events.map((e) => e.dur));
-    const reverb = { ambient: 0.34, romantic: 0.24, contemporary: 0.26, jazz: 0.14, baroque: 0.15, classical: 0.18, minimalist: 0.2 }[comp.meta.style] ?? 0.2;
+    const reverb = { ambient: 0.34, romantic: 0.24, virtuoso: 0.26, contemporary: 0.26, jazz: 0.14, baroque: 0.15, classical: 0.18, minimalist: 0.2 }[comp.meta.style] ?? 0.2;
     this.synth.reverbMix = reverb;
     if (this.synth.output) this.synth.setReverb(this.synth.output, reverb);
     this.emit();
