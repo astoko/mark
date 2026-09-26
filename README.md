@@ -71,7 +71,7 @@ Style defaults (tempo range, meters, minor bias, harmonic rhythm, textures, dyna
 `start/beats` are score positions in quarter notes; `time/dur` are performance seconds (rubato, swing and micro-timing applied).
 
 ### Playback (`public/js/`)
-* `synth.js` — at page load, renders 30 multisamples (A0–C8) with an `OfflineAudioContext` from an additive model: inharmonic partials, per-partial two-stage decay, detuned unison strings, hammer comb filtering, hammer noise and soundboard knock (~1.5–2 s). Playback pitch-shifts the nearest sample, shapes brightness by velocity, damps on key-up (no dampers above F6), honours the pedal, pans by register and adds a synthetic hall.
+* `synth.js` — plays the **Salamander Grand Piano** (recorded Yamaha C5, Alexander Holm, CC-BY 3.0; 30 MP3s, 2 MB in `public/samples/salamander`). If those can't load it falls back to a synthesized piano that, at page load, renders 30 multisamples (A0–C8) with an `OfflineAudioContext` from an additive model: inharmonic partials, per-partial two-stage decay, detuned unison strings, hammer comb filtering, hammer noise and soundboard knock (~1.5–2 s). Playback pitch-shifts the nearest sample, shapes brightness by velocity, damps on key-up (no dampers above F6), honours the pedal, pans by register and adds a synthetic hall.
 * `player.js` — lookahead scheduler in composition time, so tempo (50–150 %), volume and transpose (±12) apply live; pause/stop/seek.
 * `keyboard.js`, `roll.js` — 88 keys lit per layer (melody amber, harmony teal, bass violet); piano roll with playhead, bar lines, section markers, live chord symbols, pedal lane; overview strip to jump between sections.
 * `export.js` — MIDI (tempo map, 3 tracks, pedal CC64) and WAV (offline render through the same piano).

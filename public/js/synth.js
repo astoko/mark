@@ -140,9 +140,30 @@ function makeImpulse(ctx, seconds = 2.6, decay = 2.8) {
   return buf;
 }
 
+// Salamander Grand Piano V3 (Yamaha C5, Alexander Holm, CC-BY 3.0), one sample every
+// minor third A0–C8 — the same grid as the synthesized set.
+const SALAMANDER_NAMES = { 0: 'C', 3: 'Ds', 6: 'Fs', 9: 'A' };
+const salamanderUrl = (m) => `/samples/salamander/${SALAMANDER_NAMES[m % 12]}${Math.floor(m / 12) - 1}.mp3`;
+
+async function loadSalamander(onProgress) {
+  const decoder = new OfflineAudioContext(1, 1, SR);
+  const points = [];
+  for (let m = LOWEST; m <= HIGHEST; m += SAMPLE_STEP) points.push(m);
+  let done = 0;
+  return Promise.all(points.map(async (m) => {
+    const res = await fetch(salamanderUrl(m));
+    if (!res.ok) throw new Error(`sample ${m}: HTTP ${res.status}`);
+    const buffer = await decoder.decodeAudioData(await res.arrayBuffer());
+    onProgress?.(++done / points.length);
+    return { midi: m, buffer };
+  }));
+}
+
 export class PianoSynth {
-  constructor() {
+  constructor({ source = 'sampled' } = {}) {
     this.ctx = null;
+    this.source = source; // 'sampled' (recorded grand) or 'synth' (additive model)
+    this.kind = null;
     this.samples = [];
     this.ready = null;
     this.impulse = null;
@@ -166,6 +187,16 @@ export class PianoSynth {
   init(onProgress) {
     if (this.ready) return this.ready;
     this.ready = (async () => {
+      if (this.source === 'sampled') {
+        try {
+          this.samples = (await loadSalamander(onProgress)).sort((a, b) => a.midi - b.midi);
+          this.kind = 'sampled';
+          return true;
+        } catch (e) {
+          console.warn('Recorded piano unavailable, using synthesized piano:', e.message);
+        }
+      }
+      this.kind = 'synth';
       const points = [];
       for (let m = LOWEST; m <= HIGHEST; m += SAMPLE_STEP) points.push(m);
       if (points[points.length - 1] !== HIGHEST) points.push(HIGHEST);
@@ -206,12 +237,14 @@ export class PianoSynth {
     air.connect(dry).connect(comp);
     air.connect(conv).connect(wet).connect(comp);
     comp.connect(master).connect(destination);
-    const chain = { input, dry, wet, master, ctx };
+    const chain = { input, body, dry, wet, master, ctx };
     this.setReverb(chain, this.reverbMix);
     return chain;
   }
 
   setReverb(chain, mix) {
+    if (this.kind === 'sampled') mix *= 0.75; // the recordings carry some room already
+    chain.body.gain.value = this.kind === 'sampled' ? 0 : 2.5;
     chain.dry.gain.value = 1 - mix * 0.5;
     chain.wet.gain.value = mix;
   }
@@ -236,13 +269,18 @@ export class PianoSynth {
     src.playbackRate.value = rate;
     const tone = ctx.createBiquadFilter();
     tone.type = 'lowpass';
-    const bright = Math.min(18000, f0 * (1.6 + 26 * v ** 1.8) + 350);
-    tone.frequency.setValueAtTime(bright, when);
-    // Spectrum darkens as the note decays.
-    tone.frequency.setTargetAtTime(Math.max(f0 * 2.2, bright * 0.45), when + 0.05, 1.2);
+    if (this.kind === 'sampled') {
+      // Recorded samples already decay naturally; velocity only softens the hammer.
+      tone.frequency.setValueAtTime(Math.min(20000, 900 + f0 * 2 + 17000 * v ** 1.6), when);
+    } else {
+      const bright = Math.min(18000, f0 * (1.6 + 26 * v ** 1.8) + 350);
+      tone.frequency.setValueAtTime(bright, when);
+      // Spectrum darkens as the note decays.
+      tone.frequency.setTargetAtTime(Math.max(f0 * 2.2, bright * 0.45), when + 0.05, 1.2);
+    }
     tone.Q.value = 0.4;
     const g = ctx.createGain();
-    const level = 0.1 + 0.9 * v ** 1.7;
+    const level = (0.1 + 0.9 * v ** 1.7) * (this.kind === 'sampled' ? 1.5 : 1); // recordings sit ~3.5 dB lower
     g.gain.setValueAtTime(level, when);
     const end = Math.max(sustainEnd ?? keyUp, when + 0.03);
     const hasDamper = pitch < 89;

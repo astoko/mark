@@ -35,7 +35,7 @@ let busy = false;
 const pieceCache = new Map();
 
 synth.init((p) => { els.synthStatus.textContent = `Preparing piano… ${Math.round(p * 100)}%`; })
-  .then(() => { els.synthStatus.textContent = 'Piano ready · Space = play/pause · click the roll to seek'; })
+  .then(() => { els.synthStatus.textContent = `${synth.kind === 'sampled' ? 'Grand piano (Salamander samples)' : 'Synthesized piano'} ready · Space = play/pause · click the roll to seek`; })
   .catch((e) => { els.synthStatus.textContent = `Audio unavailable: ${e.message}`; });
 
 // ---------------------------------------------------------------------------- chat
@@ -216,7 +216,7 @@ async function showPiece(comp, autoplay) {
     if (!synth.samples.length) els.synthStatus.textContent = 'Finishing piano samples…';
     await synth.ready;
     await synth.resume().catch(() => {});
-    els.synthStatus.textContent = 'Piano ready · Space = play/pause · click the roll to seek';
+    els.synthStatus.textContent = `${synth.kind === 'sampled' ? 'Grand piano (Salamander samples)' : 'Synthesized piano'} ready · Space = play/pause · click the roll to seek`;
     player.play(0);
   }
 }
