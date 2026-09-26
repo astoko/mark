@@ -1,6 +1,6 @@
 # As We Know It — research and rules
 
-*As We Know It* is a hand-composed piece for piano on the theme **the end of the world as we know it**: 60 bars in 4/4, running from C major to F♯ Lydian, about 3 minutes 45 seconds. As with *Estuary*, the script only performs the written score. Every pitch, rhythm, dynamic and tempo anchor was chosen by hand in `as_we_know_it.mjs`.
+*As We Know It* is a hand-composed piece for piano on the theme **the end of the world as we know it**: 60 bars in 4/4, running from C major to F♯ Lydian, about 3 minutes 45 seconds. A fast version (about 2:15, section 7) keeps the same score with a sixteenth-note undercurrent. As with *Estuary*, the script only performs the written score. Every pitch, rhythm, dynamic and tempo anchor was chosen by hand in `score.mjs` (and, for the fast version, `as_we_know_it_fast.mjs`).
 
 It builds on the 45 papers in [`../estuary/RESEARCH.md`](../estuary/RESEARCH.md), which still apply: voice-leading, form, cadences, tension and expressive performance. This file covers three additions:
 
@@ -111,20 +111,44 @@ Also used, as a book rather than a paper: Rothstein, W. (1989). *Phrase Rhythm i
 - **No** key is struck by two voices at once, and every chord fits within a hand's reach.
 - Rendered with Salamander Grand samples: peak −0.5 dBFS, no clipped samples.
 
+## 7. Fast version
+
+`as_we_know_it_fast.mjs` keeps the whole score — melody, harmony, the semitone descent, form, dynamics — and rewrites the motor. It runs about 2 minutes 15 seconds instead of 3:45.
+
+| Stage | Original | Fast version |
+|---|---|---|
+| I–II | eighth-note waves, ♩ ≈ 61–64 | **sixteenth-note arches** (bass, 5th, octave, 10th, 12th and back; per beat where the harmony moves in quarters), ♩ ≈ 100 |
+| III | 3+3+2 in eighths, ♩ 64 → 76 | **3+3+2 in sixteenths**, with the B♭ pedal struck and accented on every group, ♩ 104 → 126 |
+| IV–V | ♩ 76 → 97 | the same notes at *Presto*, ♩ 128 → 156 |
+| VI | ♩ ≈ 60 | ♩ ≈ 96 → 80 |
+| VII | 3+3+2 sway in eighths, ♩ ≈ 60–66 | **3+3+2 sway in sixteenths** over the F♯ drone, ♩ ≈ 102–116 |
+
+The flow rules still hold, because both versions share `perform.mjs`:
+
+- The collapse falls at **61.6%** of the duration.
+- The largest local tempo change is **1.51%**.
+- There are no melody/bass parallels.
+- No key is struck by two voices at once.
+
+Every new left-hand figure is written out in `as_we_know_it_fast.mjs`, and each one stays below the alto (minimum masking, Huron 2001).
+
 ## Files
 
 | File | What it is |
 |---|---|
-| `as_we_know_it.mjs` | The score (hand-written) and performance model; prints all the checks above |
+| `score.mjs` | The score, hand-written note by note |
+| `perform.mjs` | Performance model shared by both versions (flow rules F1–F9, self-checks, exports) |
+| `as_we_know_it.mjs` | Original version: tempo plan and export; prints all the checks |
+| `as_we_know_it_fast.mjs` | Fast version: the sixteenth-note undercurrent and the faster tempo plan |
 | `engrave.mjs` | MusicXML engraver (4/4, key change, 3+3+2 beaming, 8va/15ma/8vb) |
-| `as_we_know_it.musicxml` | Score for MuseScore, Sibelius, Finale or Dorico |
-| `as_we_know_it_score.pdf` | Engraved score (4 pages, Verovio) |
-| `as_we_know_it.mid` | Performance MIDI (real-time timing, velocities, pedal) |
-| `as_we_know_it.mp3` | Rendering on the Salamander Grand (not committed; regenerate with the steps below) |
+| `*.musicxml` | Scores for MuseScore, Sibelius, Finale or Dorico (both versions) |
+| `*_score.pdf` | Engraved scores (Verovio): original 4 pages, fast 5 pages |
+| `*.mid` | Performance MIDI with real-time timing, velocities and pedal |
+| `*.mp3` | Renderings on the Salamander Grand (not committed) |
 
 To regenerate:
 
 ```
-node examples/as-we-know-it/as_we_know_it.mjs
-node examples/as-we-know-it/engrave.mjs
+node examples/as-we-know-it/as_we_know_it.mjs && node examples/as-we-know-it/engrave.mjs
+node examples/as-we-know-it/as_we_know_it_fast.mjs && node examples/as-we-know-it/engrave.mjs as_we_know_it_fast
 ```

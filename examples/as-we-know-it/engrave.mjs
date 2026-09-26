@@ -1,5 +1,6 @@
 // Engraves "As We Know It" as MusicXML (4/4, two staves, four voices).
 //   node examples/as-we-know-it/as_we_know_it.mjs && node examples/as-we-know-it/engrave.mjs
+//   node examples/as-we-know-it/as_we_know_it_fast.mjs && node examples/as-we-know-it/engrave.mjs as_we_know_it_fast
 // Notes crossing the half-bar are split and tied; eighths are beamed per half-bar (per
 // 3+3+2 group where the score limps or sways), sixteenths per beat; secondary-voice rests
 // are hidden; accidentals are computed per measure against the current key signature
@@ -8,7 +9,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const here = (f) => new URL(f, import.meta.url);
-const { bars, notes } = JSON.parse(readFileSync(here('./as_we_know_it_notation.json'), 'utf8'));
+const NAME = process.argv[2] || 'as_we_know_it';
+const { title: TITLE, subtitle: SUBTITLE, bars, notes } = JSON.parse(readFileSync(here(`./${NAME}_notation.json`), 'utf8'));
 
 const DIV = 24; // per quarter → eighth 12, 16th 6, 32nd 3
 const E = 12; // divisions per eighth
@@ -157,7 +159,6 @@ function shiftFor(x, voice) {
   return 0;
 }
 
-const METRO_AT = { 0: 63, 18: 64, 26: 76, 33: 86, 41: 60, 48: 60 };
 let key = keyMap(0);
 let wedgeOpen = false;
 let xml = '';
@@ -170,7 +171,7 @@ bars.forEach((bar, b) => {
     m += `<attributes><key><fifths>${bar.key}</fifths><mode>major</mode></key></attributes>`;
   }
   if (bar.key != null) key = keyMap(bar.key);
-  if (b in METRO_AT) m += metro(METRO_AT[b], null);
+  if (bar.metro) m += metro(bar.metro, null);
   for (const t of bar.marks) m += words(t);
   if (bar.dm) m += dyn(bar.dm);
   if (bar.wedge === 'cresc' || bar.wedge === 'dim') {
@@ -217,7 +218,6 @@ bars.forEach((bar, b) => {
   xml += `${m}</measure>`;
 });
 
-const TITLE = 'As We Know It';
 const doc = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
@@ -225,11 +225,11 @@ const doc = `<?xml version="1.0" encoding="UTF-8"?>
 <movement-title>${TITLE}</movement-title>
 <identification><creator type="composer">Claude</creator><rights>Original composition, hand-written; free to perform and share</rights></identification>
 <credit page="1"><credit-type>title</credit-type><credit-words justify="center" valign="top" font-size="24">${TITLE}</credit-words></credit>
-<credit page="1"><credit-type>subtitle</credit-type><credit-words justify="center" valign="top" font-size="12">the end of the world, in seven stages — for piano</credit-words></credit>
+<credit page="1"><credit-type>subtitle</credit-type><credit-words justify="center" valign="top" font-size="12">${SUBTITLE}</credit-words></credit>
 <credit page="1"><credit-type>composer</credit-type><credit-words justify="right" valign="top" font-size="11">Claude</credit-words></credit>
 <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
 <part id="P1">${xml}</part>
 </score-partwise>
 `;
-writeFileSync(here('./as_we_know_it.musicxml'), doc);
-console.log(`as_we_know_it.musicxml: ${bars.length} measures, ${(doc.length / 1024).toFixed(0)} KB`);
+writeFileSync(here(`./${NAME}.musicxml`), doc);
+console.log(`${NAME}.musicxml: ${bars.length} measures, ${(doc.length / 1024).toFixed(0)} KB`);
