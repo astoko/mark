@@ -32,7 +32,8 @@ const VOICES = ['rh', 'rh2', 'lh', 'lh2'];
 const smooth = (t) => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, t)))) / 2;
 const CONSONANT_STEP = new Set([3, 4, 5, 7, 8, 9]);
 
-export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRASH, name, dir, title, subtitle, compTitle, metaTempo, METRO }) {
+export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRASH, name, dir, title, subtitle, compTitle, metaTempo, METRO,
+  PEAK = CRASH, SKIP = [CRASH - 13, CRASH + 1], KEY = 'C major → F♯ Lydian', keyOf = (a) => (a >= 48 ? 'F♯ Lydian' : 'C'), SECTIONS = null }) {
   const N = BARS.length;
   const parsed = BARS.map((bar, bi) => {
     const v = {};
@@ -53,7 +54,7 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
     const issues = [];
     let prev = null;
     parsed.forEach((v, bi) => {
-      if (bi >= CRASH - 13 && bi <= CRASH + 1) { prev = null; return; }
+      if (bi >= SKIP[0] && bi <= SKIP[1]) { prev = null; return; }
       const left = [...(v.lh || []), ...(v.lh2 || [])].filter((e) => !e.rest);
       for (const at of [0, 2, 4, 6]) {
         const struck = left.filter((e) => e.start >= at - 1e-9 && e.start < at + 2 - 1e-9);
@@ -231,11 +232,11 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
   const end = Math.max(...Object.values(layers).flat().map((n) => n.time + n.dur));
   open.endTime = +end.toFixed(3);
 
-  const SECTIONS = [['I · The known world', 0, 10], ['II · Omen', 10, 18], ['III · Unease', 18, 26], ['IV · Unravelling', 26, 33], ['V · Collapse', 33, 40], ['Grand pause', 40, 41], ['VI · Aftermath', 41, 48], ['VII · The new world', 48, 60]];
+  SECTIONS ||= [['I · The known world', 0, 10], ['II · Omen', 10, 18], ['III · Unease', 18, 26], ['IV · Unravelling', 26, 33], ['V · Collapse', 33, 40], ['Grand pause', 40, 41], ['VI · Aftermath', 41, 48], ['VII · The new world', 48, 60]];
   const comp = {
     title: compTitle,
-    meta: { style: 'contemporary', styleLabel: 'Tone poem', key: 'C major → F♯ Lydian', tonic: 0, mode: 'major', tempo: metaTempo, quarterTempo: metaTempo, timeSignature: [4, 4], duration: +end.toFixed(2), bars: N, flats: false, mood: 'hand-composed' },
-    sections: SECTIONS.map(([sec, a, b]) => ({ name: sec, type: 'section', startBar: a, bars: b - a, startTime: +toSec(a).toFixed(3), endTime: +toSec(b).toFixed(3), key: a >= 48 ? 'F♯ Lydian' : 'C' })),
+    meta: { style: 'contemporary', styleLabel: 'Tone poem', key: KEY, tonic: 0, mode: 'major', tempo: metaTempo, quarterTempo: metaTempo, timeSignature: [4, 4], duration: +end.toFixed(2), bars: N, flats: false, mood: 'hand-composed' },
+    sections: SECTIONS.map(([sec, a, b]) => ({ name: sec, type: 'section', startBar: a, bars: b - a, startTime: +toSec(a).toFixed(3), endTime: +toSec(b).toFixed(3), key: keyOf(a) })),
     chords: BARS.flatMap((bar, bi) => bar.h.map(([o, sym], k) => ({ symbol: sym, time: +toSec(posOf(bi, o)).toFixed(3), dur: +(toSec(posOf(bi, bar.h[k + 1]?.[0] ?? 8)) - toSec(posOf(bi, o))).toFixed(3), roman: '' }))),
     bars: BARS.map((_, i) => +toSec(i).toFixed(3)),
     layers, pedal: pedalOut, tempoMap: [{ q: 0, bpm: 60 }],
@@ -250,10 +251,10 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
   }));
 
   const counts = Object.fromEntries(Object.entries(layers).map(([k, v]) => [k, v.length]));
-  const peak = toSec(CRASH);
+  const peak = toSec(PEAK);
   const soundingEnd = toSec(N);
   console.log(`${title}${name.endsWith('fast') ? ' (fast)' : ''}: ${N} bars, ${soundingEnd.toFixed(1)} s notated (+ ring ${(end - soundingEnd).toFixed(1)} s), notes ${JSON.stringify(counts)}`);
-  console.log(`Collapse peak (bar ${CRASH + 1}) at ${peak.toFixed(1)} s = ${(100 * peak / soundingEnd).toFixed(1)} % of the piece (golden section 61.8 %)`);
+  console.log(`Peak (bar ${PEAK + 1}) at ${peak.toFixed(1)} s = ${(100 * peak / soundingEnd).toFixed(1)} % of the piece (golden section 61.8 %)`);
   for (const [sec, a, b] of SECTIONS) console.log(`  ${sec.padEnd(22)} ${toSec(a).toFixed(1).padStart(6)} – ${toSec(b).toFixed(1).padStart(6)} s`);
   // Flow check: the largest change in local tempo between adjacent steps (excluding the
   // steps across the crash and the grand pause, which happen in silence).

@@ -9,8 +9,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const here = (f) => new URL(f, import.meta.url);
-const NAME = process.argv[2] || 'as_we_know_it';
-const { title: TITLE, subtitle: SUBTITLE, bars, notes } = JSON.parse(readFileSync(here(`./${NAME}_notation.json`), 'utf8'));
+// argument: a version name next to this script, or a path (without suffix) to another piece
+const ARG = process.argv[2] || 'as_we_know_it';
+const base = ARG.includes('/') ? new URL(`file://${process.cwd()}/${ARG}`) : here(`./${ARG}`);
+const at = (suffix) => new URL(`${base.href}${suffix}`);
+const NAME = ARG.split('/').pop();
+const { title: TITLE, subtitle: SUBTITLE, bars, notes } = JSON.parse(readFileSync(at('_notation.json'), 'utf8'));
 
 const DIV = 24; // per quarter → eighth 12, 16th 6, 32nd 3
 const E = 12; // divisions per eighth
@@ -19,7 +23,8 @@ const HALF = 48;
 const VOICE = { rh: { staff: 1, n: 1, up: true }, rh2: { staff: 1, n: 2, up: false }, lh: { staff: 2, n: 5, up: false }, lh2: { staff: 2, n: 6, up: true } };
 const TYPE = { 96: ['whole', 0], 72: ['half', 1], 48: ['half', 0], 36: ['quarter', 1], 24: ['quarter', 0], 18: ['eighth', 1], 12: ['eighth', 0], 9: ['16th', 1], 6: ['16th', 0], 3: ['32nd', 0] };
 const SHARPS = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
-const keyMap = (fifths) => Object.fromEntries(SHARPS.slice(0, fifths).map((s) => [s, 1]));
+const FLATS = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+const keyMap = (fifths) => Object.fromEntries(fifths >= 0 ? SHARPS.slice(0, fifths).map((s) => [s, 1]) : FLATS.slice(0, -fifths).map((s) => [s, -1]));
 const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 function spell(name) {
@@ -159,15 +164,16 @@ function shiftFor(x, voice) {
   return 0;
 }
 
-let key = keyMap(0);
+let key = keyMap(bars[0].key ?? 0);
 let wedgeOpen = false;
 let xml = '';
 bars.forEach((bar, b) => {
   let m = `<measure number="${b + 1}">`;
   if (b === 0) {
-    m += `<attributes><divisions>${DIV}</divisions><key><fifths>0</fifths><mode>major</mode></key><time><beats>4</beats><beat-type>4</beat-type></time>`
+    m += `<attributes><divisions>${DIV}</divisions><key><fifths>${bars[0].key ?? 0}</fifths><mode>${(bars[0].key ?? 0) < 0 ? 'minor' : 'major'}</mode></key><time><beats>4</beats><beat-type>4</beat-type></time>`
       + '<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>';
   } else if (bar.key != null) {
+    // key change
     m += `<attributes><key><fifths>${bar.key}</fifths><mode>major</mode></key></attributes>`;
   }
   if (bar.key != null) key = keyMap(bar.key);
@@ -213,7 +219,7 @@ bars.forEach((bar, b) => {
     if (cur) m += shift('stop', Math.abs(cur), staff, num);
   }
   if (bar.wedge === 'stop' && wedgeOpen) { m += '<direction placement="below"><direction-type><wedge type="stop"/></direction-type><staff>1</staff></direction>'; wedgeOpen = false; }
-  if (b === 47 || b === 40) m += '<barline location="right"><bar-style>light-light</bar-style></barline>';
+  if (bar.gp || bars[b + 1]?.key != null) m += '<barline location="right"><bar-style>light-light</bar-style></barline>';
   if (b === bars.length - 1) m += '<barline location="right"><bar-style>light-heavy</bar-style></barline>';
   xml += `${m}</measure>`;
 });
@@ -231,5 +237,5 @@ const doc = `<?xml version="1.0" encoding="UTF-8"?>
 <part id="P1">${xml}</part>
 </score-partwise>
 `;
-writeFileSync(here(`./${NAME}.musicxml`), doc);
+writeFileSync(at('.musicxml'), doc);
 console.log(`${NAME}.musicxml: ${bars.length} measures, ${(doc.length / 1024).toFixed(0)} KB`);
