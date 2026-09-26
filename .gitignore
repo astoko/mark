@@ -4,3 +4,5 @@ data/
 .DS_Store
 examples/*.wav
 examples/*.json
+examples/**/*.wav
+examples/**/*.json
