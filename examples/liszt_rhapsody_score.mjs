@@ -89,6 +89,10 @@ for (let i = 0; i < 8; i++) {
 
 // ---- realisation --------------------------------------------------------------------
 const melody = []; const harmony = []; const bass = []; const pedal = [];
+// Notation view of the same score: hand/voice, written (not sounding) durations.
+const notation = [];
+const N = (o) => notation.push(o);
+const chordAt = (bar, off) => bar.chords.filter(([o]) => o <= off + 1e-6).pop()[1];
 let rs = 7;
 const rnd = () => { rs = (rs * 16807) % 2147483647; return rs / 2147483647; };
 const hum = (v) => Math.round(Math.max(12, Math.min(124, v + (rnd() - 0.5) * 6)));
@@ -105,10 +109,11 @@ BARS.forEach((bar, bi) => {
       const hairpin = Math.sin(Math.PI * Math.min(1, (k + 0.5) / Math.max(1, bar.mel.length))) * 4;
       const v = bar.vel + 10 + hairpin + (t === q0 ? 3 : 0);
       melody.push({ q: t, d, p, v: hum(v), run: bar.run && d <= 0.25 });
-      if (bar.oct) melody.push({ q: t, d, p: p - 12, v: hum(v - 12) });
+      N({ bar: bi, q: t, d, p, part: 'rh1', chord: chordAt(bar, t - q0), name: typeof p0 === 'string' ? p0 : null });
+      if (bar.oct) { melody.push({ q: t, d, p: p - 12, v: hum(v - 12) }); N({ bar: bi, q: t, d, p: p - 12, part: 'rh1', chord: chordAt(bar, t - q0) }); }
       if (bar.grand && d >= 1) {
         const [, name] = bar.chords.filter(([o]) => o <= t - q0).pop();
-        for (const c of tonesIn(CH[name], p - 11, p - 2).filter((c) => c % 12 !== p % 12).slice(-2)) harmony.push({ q: t, d, p: c, v: hum(v - 24) });
+        for (const c of tonesIn(CH[name], p - 11, p - 2).filter((c) => c % 12 !== p % 12).slice(-2)) { harmony.push({ q: t, d, p: c, v: hum(v - 24) }); N({ bar: bi, q: t, d, p: c, part: 'rh1', chord: name }); }
       }
     }
     t += d;
@@ -125,10 +130,12 @@ BARS.forEach((bar, bi) => {
     if (bar.tex === 'roll' || bar.tex === 'final') {
       const chord = [b, b + 12, ...tonesIn(pcs, b + 16, bar.tex === 'final' ? 80 : 68).filter((_, i) => i % 1 === 0).slice(0, bar.tex === 'final' ? 7 : 4)];
       chord.forEach((p, i) => (i === 0 ? bass : harmony).push({ q: s + i * 0.09, d: e - s - i * 0.09, p, v: hum(av - 6 - i) }));
+      chord.forEach((p, i) => N({ bar: bi, q: s, d: e - s, p, part: i === 0 ? 'lh1' : p >= 60 ? 'rh2' : 'lh1', chord: name, arp: true, fermata: bar.tex === 'final' }));
       return;
     }
     bass.push({ q: s, d: e - s, p: b, v: hum(av - 2) });
-    if (bar.tex === 'sweep' && b - 12 >= 21) bass.push({ q: s, d: e - s, p: b - 12, v: hum(av - 8) });
+    if (bar.tex !== 'fermata') N({ bar: bi, q: s, d: e - s, p: b, part: 'lh1', chord: name });
+    if (bar.tex === 'sweep' && b - 12 >= 21) { bass.push({ q: s, d: e - s, p: b - 12, v: hum(av - 8) }); N({ bar: bi, q: s, d: e - s, p: b - 12, part: 'lh1', chord: name }); }
     if (bar.tex === 'trip' || bar.tex === 'six' || bar.tex === 'sweep') {
       const step = bar.tex === 'trip' ? 1 / 3 : 0.25;
       const top = bar.tex === 'trip' ? 64 : bar.tex === 'six' ? 65 : 67;
@@ -137,19 +144,27 @@ BARS.forEach((bar, bi) => {
       for (let i = 1, x = s + step; x < e - 1e-6; i++, x += step) {
         const p = seq[(i - 1) % seq.length];
         harmony.push({ q: x, d: Math.min(e - x, step * 3), p, v: hum(av * 0.72 - 6 + (p === L[L.length - 1] ? 5 : 0)) });
+        N({ bar: bi, q: x, d: step, p, part: 'lh2', chord: name });
       }
     } else if (bar.tex === 'trem') {
-      if (b - 12 >= 21) bass.push({ q: s, d: e - s, p: b - 12, v: hum(av - 6) });
+      if (b - 12 >= 21) { bass.push({ q: s, d: e - s, p: b - 12, v: hum(av - 6) }); N({ bar: bi, q: s, d: e - s, p: b - 12, part: 'lh1', chord: name }); }
       const mid = tonesIn(pcs, 55, 72);
       const lo = mid.slice(0, 2); const hi = mid.slice(2, 4);
-      for (let i = 0, x = s; x < e - 1e-6; i++, x += 0.25) (i % 2 ? hi : lo).forEach((p) => harmony.push({ q: x, d: 0.27, p, v: hum(av * 0.7 - 4) }));
+      for (let i = 0, x = s; x < e - 1e-6; i++, x += 0.25) (i % 2 ? hi : lo).forEach((p) => { harmony.push({ q: x, d: 0.27, p, v: hum(av * 0.7 - 4) }); N({ bar: bi, q: x, d: 0.25, p, part: 'lh2', chord: name }); });
     } else if (bar.tex === 'rising') {
-      tonesIn(pcs, 49, 97).forEach((p, i, arr) => harmony.push({ q: s + 0.5 + i * (2.6 / arr.length), d: e - s, p, v: hum(av - 4 - i * 0.6) }));
-      [n('Ab2'), n('F3'), n('Ab3')].forEach((p) => harmony.push({ q: s, d: e - s, p, v: hum(av - 8) }));
+      tonesIn(pcs, 49, 97).forEach((p, i, arr) => {
+        harmony.push({ q: s + 0.5 + i * (2.6 / arr.length), d: e - s, p, v: hum(av - 4 - i * 0.6) });
+        N({ bar: bi, q: s + 0.5 + i * 0.25, d: 0.25, p, part: p >= 60 ? 'rh2' : 'lh2', chord: name });
+      });
+      [n('Ab2'), n('F3'), n('Ab3')].forEach((p) => { harmony.push({ q: s, d: e - s, p, v: hum(av - 8) }); N({ bar: bi, q: s, d: e - s, p, part: 'lh1', chord: name }); });
     } else if (bar.tex === 'fermata') {
       // Cadenza bar: A♭ octave + A♭7(♭9) struck once; the run is written below.
       bass.push({ q: s, d: 4, p: b + 12, v: hum(av - 4) });
-      [n('Eb3'), n('Gb3'), n('C4'), n('Bbb4')].forEach((p, i) => harmony.push({ q: s + i * 0.05, d: 4, p, v: hum(av - 14) }));
+      N({ bar: bi, q: s, d: 4, p: b + 12, part: 'lh1', chord: name, fermata: true });
+      [n('Eb3'), n('Gb3'), n('C4'), n('Bbb4')].forEach((p, i) => {
+        harmony.push({ q: s + i * 0.05, d: 4, p, v: hum(av - 14) });
+        N({ bar: bi, q: s, d: 4, p, part: p >= 60 ? 'rh2' : 'lh1', chord: name, fermata: true });
+      });
       // Down from the top through the diminished-seventh-over-A♭, then up into the grandioso theme.
       const down = tonesIn(pcs, 60, 93).reverse();
       const rise = tonesIn(pcs, 63, 78);
@@ -160,6 +175,7 @@ BARS.forEach((bar, bi) => {
         const x1 = s + 0.35 + 3.5 * pos((i + 1) / run.length);
         const shade = i < down.length ? 108 - (i / down.length) * 40 : 70 + ((i - down.length) / rise.length) * 34;
         melody.push({ q: x0, d: x1 - x0, p, v: hum(shade), run: true });
+        N({ bar: bi, q: s, d: 4, p, part: 'rh1', chord: name, grace: i < run.length - 1, order: i, fermata: i === run.length - 1 });
       });
     }
   });
@@ -210,4 +226,5 @@ const comp = {
   tempoMap: [{ q: 0, bpm: 60 }], // performance times are exported directly (1 beat = 1 s)
 };
 writeFileSync(new URL('./liszt_rhapsody.json', import.meta.url), JSON.stringify(comp));
+writeFileSync(new URL('./liszt_rhapsody_notation.json', import.meta.url), JSON.stringify({ bars: BARS.map((b) => ({ vel: b.vel, tex: b.tex, chords: b.chords.map(([o, name]) => [o, name]) })), notes: notation }));
 console.log(`${comp.title}: ${BARS.length} bars, ${comp.meta.duration}s, notes`, Object.fromEntries(Object.entries(layers).map(([k, v]) => [k, v.length])), 'last harmony', lastT.toFixed(1));
