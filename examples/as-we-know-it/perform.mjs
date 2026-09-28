@@ -54,7 +54,7 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
     const issues = [];
     let prev = null;
     parsed.forEach((v, bi) => {
-      if (bi >= SKIP[0] && bi <= SKIP[1]) { prev = null; return; }
+      if ((Array.isArray(SKIP[0]) ? SKIP : [SKIP]).some(([a, b]) => bi >= a && bi <= b)) { prev = null; return; }
       const left = [...(v.lh || []), ...(v.lh2 || [])].filter((e) => !e.rest);
       for (const at of [0, 2, 4, 6]) {
         const struck = left.filter((e) => e.start >= at - 1e-9 && e.start < at + 2 - 1e-9);
@@ -194,9 +194,12 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
         if (role === 'melody' && top && !ev.flags[k].bell) t -= Math.min(0.02, Math.max(0, (velocity - dyn) * 0.0012));
         if (rolled) t += (bar.final || ev.bi === N - 2 ? ['lh', 'rh2', 'rh'].indexOf(voice) * 3 + k : k) * 0.07;
         let dur = tEnd - t;
+        // Articulation: bars marked with `artic` play their short notes detached (march staccato).
+        const detached = bar.artic && ev.dur + (ev.tieExtra || 0) <= 1.5 && endPos < N - 1e-9;
+        if (detached) dur = (tEnd - tOn) * bar.artic;
         // Legato (F6; Repp 1997; Bresin & Battel 2000): key overlap into the next melody note,
         // proportionally larger for short notes, longer for high notes and consonant steps.
-        if (role === 'melody' && next && !next.rest && Math.abs(next.start + (next.bi - ev.bi) * 8 - (ev.start + ev.dur + (ev.tieExtra || 0))) < 1e-9) {
+        if (detached) { /* no key overlap */ } else if (role === 'melody' && next && !next.rest && Math.abs(next.start + (next.bi - ev.bi) * 8 - (ev.start + ev.dur + (ev.tieExtra || 0))) < 1e-9) {
           const ioi = tEnd - tOn;
           let kot = Math.max(0.018, Math.min(0.075, 0.012 + 0.06 * ioi));
           const step = Math.abs(Math.max(...next.names.map(midi)) - p);
@@ -205,7 +208,7 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
         } else if (role === 'melody' && next && next.rest) {
           dur -= 0.05; // a breath before a written rest, nothing more
         }
-        if (role === 'figuration' || (role === 'bass' && ev.dur <= 1)) dur += 0.02;
+        if (!detached && (role === 'figuration' || (role === 'bass' && ev.dur <= 1))) dur += 0.02;
         if (endPos >= N - 1e-9) dur += 3.5; // the last chord is held, then released
         const layer = role === 'melody' ? 'melody' : role === 'bass' ? 'bass' : 'harmony';
         layers[layer].push({ pitch: p, time: +Math.max(0, t).toFixed(4), dur: +Math.max(0.06, dur).toFixed(4), velocity, start: +(onsetPos * 4).toFixed(4), beats: +((endPos - onsetPos) * 4).toFixed(4), perfStart: +Math.max(0, t).toFixed(4), perfBeats: +Math.max(0.06, dur).toFixed(4) });
@@ -220,6 +223,8 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
   let open = null;
   BARS.forEach((bar, bi) => {
     if (bar.gp) return;
+    // Dry bars (march strains): no pedal; the previous pedal is released on the downbeat.
+    if (bar.dry) { if (open) { open.endTime = +(toSec(posOf(bi, 0)) + 0.02).toFixed(4); open = null; } return; }
     bar.h.forEach(([off]) => {
       const t = toSec(posOf(bi, off));
       if (open) open.endTime = +(t + 0.02).toFixed(4);
@@ -230,7 +235,7 @@ export function perform({ BARS, TEMPO, BREATHS, ARCHES, FINAL_FROM, FINAL_W, CRA
     if (bi === CRASH) { open.endTime = +toSec(posOf(CRASH + 1, 1.5)).toFixed(4); open = null; }
   });
   const end = Math.max(...Object.values(layers).flat().map((n) => n.time + n.dur));
-  open.endTime = +end.toFixed(3);
+  if (open) open.endTime = +end.toFixed(3);
 
   SECTIONS ||= [['I · The known world', 0, 10], ['II · Omen', 10, 18], ['III · Unease', 18, 26], ['IV · Unravelling', 26, 33], ['V · Collapse', 33, 40], ['Grand pause', 40, 41], ['VI · Aftermath', 41, 48], ['VII · The new world', 48, 60]];
   const comp = {
