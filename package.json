@@ -1,0 +1,15 @@
+{
+  "name": "mark-piano-composer",
+  "version": "1.0.0",
+  "description": "Chat-driven piano composition generator: music-theory engine + Web Audio playback with visualization",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0"
+}
