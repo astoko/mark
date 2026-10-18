@@ -60,8 +60,9 @@ window.render = async function (comp) {
     for (let ch = 0; ch < 2; ch++) { const src = full.getChannelData(Math.min(ch, full.numberOfChannels - 1)); const dst = b.getChannelData(ch); dst.set(src.subarray(0, keep)); for (let i = 0; i < 2000; i++) dst[keep - 1 - i] *= i / 2000; }
     buffers[k] = b;
   }));
-  const dry = ctx.createGain(); dry.gain.value = 0.82;
-  const wet = ctx.createGain(); wet.gain.value = 0.30;
+  const RO = comp.render || {}; // optional: { dry, wet } mix levels (defaults reproduce the original sound)
+  const dry = ctx.createGain(); dry.gain.value = RO.dry ?? 0.82;
+  const wet = ctx.createGain(); wet.gain.value = RO.wet ?? 0.30;
   const conv = ctx.createConvolver(); conv.buffer = hallIR(ctx);
   const pre = ctx.createDelay(); pre.delayTime.value = 0.018;
   const bus = ctx.createGain();
@@ -74,8 +75,8 @@ window.render = async function (comp) {
     const within = 0.55 + 0.45 * Math.min(1, e.velocity / 127 * 1.1); // finer loudness inside a layer
     for (const [li, w] of [[lo, Math.cos(x * Math.PI / 2)], [hi, Math.sin(x * Math.PI / 2)]]) {
       if (w < 0.02 || (li === hi && li === lo && w !== Math.cos(x * Math.PI / 2))) continue;
-      const src = ctx.createBufferSource(); src.buffer = buffers[s + ':' + li]; src.playbackRate.value = 2 ** ((e.pitch - s) / 12);
-      const g = ctx.createGain(); g.gain.setValueAtTime(w * within * 0.55, when);
+      const src = ctx.createBufferSource(); src.buffer = buffers[s + ':' + li]; src.playbackRate.value = 2 ** ((e.pitch - s + (e.detune || 0) / 100) / 12); // optional per-note detune in cents
+      const g = ctx.createGain(); g.gain.setValueAtTime(w * within * 0.55 * 10 ** ((e.gain || 0) / 20), when); // optional per-note gain in dB
       if (damp) g.gain.setTargetAtTime(0, end, damp);
       const pan = ctx.createStereoPanner(); pan.pan.value = Math.max(-0.35, Math.min(0.35, (e.pitch - 64) / 64 * 0.35));
       src.connect(g).connect(pan).connect(bus); src.start(when);

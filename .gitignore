@@ -7,3 +7,7 @@ examples/*.json
 examples/**/*.wav
 examples/**/*.json
 examples/**/*.mp3
+# STATIC score: the calibration table is source data (5 min to regenerate); rendered audio is not
+!examples/static-score/calib.json
+examples/static-score/out/
+__pycache__/
