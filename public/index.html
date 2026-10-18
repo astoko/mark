@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mark · Piano Composer</title>
+  <meta name="description" content="Chat-driven piano composition generator with real music theory, live playback and visualization.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314171f'/%3E%3Crect x='6' y='7' width='5' height='18' rx='1' fill='%23fff'/%3E%3Crect x='13.5' y='7' width='5' height='18' rx='1' fill='%23fff'/%3E%3Crect x='21' y='7' width='5' height='18' rx='1' fill='%23fff'/%3E%3Crect x='9.5' y='7' width='3.5' height='11' rx='1' fill='%23ffb547'/%3E%3Crect x='17' y='7' width='3.5' height='11' rx='1' fill='%23ffb547'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="chat" aria-label="Chat">
+      <header class="brand">
+        <div class="logo" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <h1>Mark</h1>
+          <p>Piano composer</p>
+        </div>
+        <button id="historyBtn" class="ghost small" title="Session history">History</button>
+      </header>
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <div id="remixChips" class="chips" hidden></div>
+      <form id="composer" class="composer" autocomplete="off">
+        <textarea id="prompt" rows="2" placeholder="e.g. melancholic ambient piece in A minor, 2 minutes" aria-label="Describe the piece"></textarea>
+        <button id="send" type="submit" class="primary">Compose</button>
+      </form>
+      <div id="synthStatus" class="synth-status">Preparing piano…</div>
+    </aside>
+
+    <main class="stage">
+      <section class="now">
+        <div class="now-title">
+          <h2 id="title">No piece yet</h2>
+          <div id="chips" class="meta-chips"></div>
+        </div>
+        <div class="now-live">
+          <div><span class="lbl">Section</span><span id="liveSection">—</span></div>
+          <div><span class="lbl">Chord</span><span id="liveChord" class="mono">—</span></div>
+          <div class="legend">
+            <span><i class="sw melody"></i>Melody</span>
+            <span><i class="sw harmony"></i>Harmony</span>
+            <span><i class="sw bass"></i>Bass</span>
+          </div>
+        </div>
+      </section>
+
+      <div id="overview" class="overview" title="Click to jump"></div>
+      <div class="roll-wrap"><canvas id="roll" aria-label="Piano roll"></canvas></div>
+
+      <section class="transport" aria-label="Playback controls">
+        <div class="t-group">
+          <button id="playBtn" class="round primary" title="Play / Pause (Space)" disabled aria-label="Play">
+            <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+          </button>
+          <button id="stopBtn" class="round" title="Stop" disabled aria-label="Stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg></button>
+          <span id="time" class="time mono">0:00 / 0:00</span>
+        </div>
+        <label class="t-ctl">Tempo <input id="tempo" type="range" min="50" max="150" value="100"><span id="tempoVal" class="mono">100%</span></label>
+        <label class="t-ctl">Volume <input id="volume" type="range" min="0" max="100" value="80"></label>
+        <div class="t-ctl">Transpose
+          <button id="trDown" class="small" aria-label="Transpose down">−</button>
+          <span id="trVal" class="mono">0</span>
+          <button id="trUp" class="small" aria-label="Transpose up">+</button>
+        </div>
+        <div class="t-group">
+          <button id="midiBtn" class="small" disabled>MIDI</button>
+          <button id="wavBtn" class="small" disabled>WAV</button>
+        </div>
+      </section>
+
+      <div id="keyboard" class="keyboard" aria-hidden="true"></div>
+    </main>
+  </div>
+
+  <dialog id="historyDlg">
+    <form method="dialog" class="dlg-head"><h3>Session history</h3><button class="ghost small">Close</button></form>
+    <ul id="historyList" class="history"></ul>
+  </dialog>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
